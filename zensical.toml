@@ -1,0 +1,29 @@
+[project]
+site_name        = "ACME Azure"
+site_description = "ACME Azure landing zone — Terragrunt infrastructure with HDS / ISO 27001 compliance targets."
+site_author      = "Chris <goabonga@pm.me>"
+site_url         = "https://goabonga.github.io/acme_azure/"
+
+repo_url   = "https://github.com/goabonga/acme_azure"
+repo_name  = "goabonga/acme_azure"
+edit_uri   = "edit/main/docs/"
+
+copyright = """
+ACME Azure &middot; Copyright &copy; 2026 Chris &middot;
+<a href="https://github.com/goabonga/acme_azure/blob/main/LICENSE">MIT License</a>
+"""
+
+nav = [
+  { "Home" = "index.md" },
+  { "Changelog" = "changelog.md" },
+]
+
+[project.theme]
+variant  = "classic"
+logo     = "acme.svg"
+language = "en"
+
+[[project.theme.palette]]
+scheme  = "default"
+primary = "blue"
+accent  = "cyan"
