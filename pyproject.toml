@@ -1,0 +1,10 @@
+[project]
+name = "acme-azure-docs"
+version = "0.0.0"
+description = "ACME Azure landing zone — documentation toolchain."
+requires-python = ">=3.11"
+
+[dependency-groups]
+doc = [
+    "zensical>=0.0.43",
+]
