@@ -110,6 +110,17 @@ versions or edit their changelogs by hand.
 **deployed**, not a library, so they are excluded from that automatic bump
 and are only released by the deploy pipeline below.
 
+## Repository secrets
+
+All optional — every workflow degrades gracefully (with a warning) when
+one is unset, rather than failing:
+
+| Secret | Used by | Effect when unset |
+| --- | --- | --- |
+| `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE` | `ci.yml` release job, `dependabot-rewrite.yml` | Release/rewritten commits are unsigned instead of GPG-signed |
+| `DEPENDABOT_REWRITE_PAT` (fine-grained, `contents:write` on this repo) | `dependabot-rewrite.yml` | Rewritten commits still push, but with the default `GITHUB_TOKEN` - which never triggers other workflows, so `ci.yml` won't re-run against the new (rebased) commit SHA. Fine if branch protection doesn't require status checks; the PR gets stuck otherwise |
+| `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | `terragrunt-plan.yml`, `terragrunt-apply.yml` | Azure OIDC login fails - see [One-time setup](#one-time-setup-per-environment-once-the-repo-has-a-github-remote) below, per-environment |
+
 ## Deploying an environment
 
 A change to `configs/config.<env>.yaml`, `azure/**` or `modules/**` can
