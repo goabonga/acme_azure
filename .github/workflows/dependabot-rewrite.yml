@@ -78,16 +78,20 @@ jobs:
 
       - name: Force-push rewritten branch
         if: steps.gate.outputs.skip != 'true'
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          git push --force-with-lease origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          git push --force-with-lease origin "HEAD:${HEAD_REF}"
 
       - name: Write step summary
         if: steps.gate.outputs.skip != 'true' && success()
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           {
             echo "## Dependabot rewrite: applied"
             echo ""
-            echo "PR branch \`${{ github.event.pull_request.head.ref }}\` rewritten:"
+            echo "PR branch \`${HEAD_REF}\` rewritten:"
             echo ""
             echo "- Conventional-commits scope inferred from changed files / dev-group membership"
             echo "- Authored and GPG-signed as \`$(git config user.name) <$(git config user.email)>\`"
