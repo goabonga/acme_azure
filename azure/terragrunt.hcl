@@ -34,6 +34,12 @@ remote_state {
     storage_account_name = local.config.remote_state.storage_account_name
     container_name       = local.config.remote_state.container_name
     key                  = "${format("%s/%s", local.environment, path_relative_to_include())}/terraform.tfstate"
+    # Use the CI job's Azure AD identity (from `az login` / azure/login OIDC)
+    # for blob access instead of the storage account's shared key. Needs
+    # "Storage Blob Data Contributor" on the container - no key-listing
+    # permission, and the account can have shared-key access disabled
+    # entirely (see scripts/bootstrap-storage.sh).
+    use_azuread_auth = true
   }
 
   # Generates remote state backend configurations.

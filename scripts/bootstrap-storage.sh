@@ -71,6 +71,7 @@ create_storage() {
 			--min-tls-version TLS1_2 \
 			--https-only true \
 			--allow-blob-public-access false \
+			--allow-shared-key-access false \
 			--output none
 	fi
 
