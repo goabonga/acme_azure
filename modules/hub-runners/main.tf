@@ -12,17 +12,45 @@ resource "azurerm_user_assigned_identity" "runner" {
 
 # RBAC-authorized (no access policies): holds the GitHub PAT used to mint
 # runner registration tokens. scripts/bootstrap-runner.sh writes the secret
-# after this is created - Terraform never sees the PAT value.
+# after this is created - Terraform never sees the PAT value. No public
+# network access - the script opens a temporary firewall rule for the
+# operator's IP for the duration of that one call (see the script).
 resource "azurerm_key_vault" "runners" {
-  name                       = "kv-${var.name}-runners"
-  resource_group_name        = var.resource_group_name
-  location                   = var.location
-  tenant_id                  = data.azurerm_client_config.current.tenant_id
-  sku_name                   = "standard"
-  rbac_authorization_enabled = true
-  purge_protection_enabled   = true
-  soft_delete_retention_days = 90
-  tags                       = var.tags
+  name                          = "kv-${var.name}-runners"
+  resource_group_name           = var.resource_group_name
+  location                      = var.location
+  tenant_id                     = data.azurerm_client_config.current.tenant_id
+  sku_name                      = "standard"
+  rbac_authorization_enabled    = true
+  purge_protection_enabled      = true
+  soft_delete_retention_days    = 90
+  public_network_access_enabled = false
+  tags                          = var.tags
+
+  network_acls {
+    default_action = "Deny"
+    bypass         = "AzureServices"
+  }
+}
+
+resource "azurerm_private_endpoint" "vault" {
+  name                = "pe-${var.name}-vault"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  subnet_id           = var.private_endpoint_subnet_id
+  tags                = var.tags
+
+  private_service_connection {
+    name                           = "psc-${var.name}-vault"
+    private_connection_resource_id = azurerm_key_vault.runners.id
+    subresource_names              = ["vault"]
+    is_manual_connection           = false
+  }
+
+  private_dns_zone_group {
+    name                 = "dns-${var.name}-vault"
+    private_dns_zone_ids = [var.vault_private_dns_zone_id]
+  }
 }
 
 resource "azurerm_role_assignment" "runner_reads_pat" {
@@ -61,13 +89,15 @@ resource "azurerm_subnet_nat_gateway_association" "runners" {
 }
 
 resource "azurerm_linux_virtual_machine_scale_set" "runners" {
-  name                = "vmss-${var.name}-runners"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  sku                 = var.vm_size
-  instances           = var.instances
-  admin_username      = var.admin_username
-  tags                = var.tags
+  name                            = "vmss-${var.name}-runners"
+  resource_group_name             = var.resource_group_name
+  location                        = var.location
+  sku                             = var.vm_size
+  instances                       = var.instances
+  admin_username                  = var.admin_username
+  disable_password_authentication = true
+  encryption_at_host_enabled      = true
+  tags                            = var.tags
 
   admin_ssh_key {
     username   = var.admin_username

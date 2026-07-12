@@ -49,9 +49,26 @@ resource "azurerm_private_dns_zone" "blob" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "blob" {
-  name                  = "link-${var.name}"
+  name                  = "link-${var.name}-blob"
   resource_group_name   = var.resource_group_name
   private_dns_zone_name = azurerm_private_dns_zone.blob.name
+  virtual_network_id    = azurerm_virtual_network.hub.id
+  registration_enabled  = false
+  tags                  = var.tags
+}
+
+# Same, for the hub's own Key Vault (modules/hub-runners) - it has no
+# public network access either.
+resource "azurerm_private_dns_zone" "vault" {
+  name                = "privatelink.vaultcore.azure.net"
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "vault" {
+  name                  = "link-${var.name}-vault"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = azurerm_private_dns_zone.vault.name
   virtual_network_id    = azurerm_virtual_network.hub.id
   registration_enabled  = false
   tags                  = var.tags

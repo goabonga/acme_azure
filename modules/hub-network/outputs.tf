@@ -24,3 +24,11 @@ output "blob_private_dns_zone_id" {
 output "blob_private_dns_zone_name" {
   value = azurerm_private_dns_zone.blob.name
 }
+
+output "vault_private_dns_zone_id" {
+  value = azurerm_private_dns_zone.vault.id
+}
+
+output "vault_private_dns_zone_name" {
+  value = azurerm_private_dns_zone.vault.name
+}

@@ -23,8 +23,10 @@
 #   az login
 #   ./scripts/bootstrap-runner.sh [instances]   # default: 1
 #
-# Requires: az CLI (authenticated, rights to set Key Vault secrets and
-# scale the VMSS - see CONTRIBUTING.md for the RBAC), yq.
+# Requires: az CLI (authenticated, rights to set Key Vault secrets, manage
+# its network rules, and scale the VMSS - see CONTRIBUTING.md for the
+# RBAC), yq, and outbound network access to https://api.ipify.org (used to
+# discover this machine's public IP for the temporary firewall rule).
 
 set -euo pipefail
 
@@ -52,6 +54,29 @@ if [[ -z "${GITHUB_PAT:-}" ]]; then
 	echo
 fi
 [[ -n "$GITHUB_PAT" ]] || { echo "error: no PAT provided" >&2; exit 1; }
+
+# The Key Vault has no public network access by default (network_acls
+# default_action = "Deny" - see modules/hub-runners). Open a temporary
+# firewall rule for this operator's IP just for the `secret set` call,
+# then remove it - `trap` guarantees cleanup even on failure/Ctrl-C.
+OPERATOR_IP=$(curl -sSf https://api.ipify.org)
+[[ -n "$OPERATOR_IP" ]] || { echo "error: could not determine this machine's public IP" >&2; exit 1; }
+
+cleanup() {
+	echo "==> removing temporary Key Vault firewall rule for ${OPERATOR_IP}"
+	az keyvault network-rule remove \
+		--name "$KEY_VAULT_NAME" \
+		--ip-address "${OPERATOR_IP}/32" \
+		--output none
+}
+trap cleanup EXIT
+
+echo "==> allowing ${OPERATOR_IP} through the Key Vault firewall (temporary)"
+az keyvault network-rule add \
+	--name "$KEY_VAULT_NAME" \
+	--ip-address "${OPERATOR_IP}/32" \
+	--output none
+sleep 10 # firewall rule propagation
 
 echo "==> writing secret 'github-runner-pat' to Key Vault ${KEY_VAULT_NAME}"
 az keyvault secret set \

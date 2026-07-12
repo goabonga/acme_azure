@@ -21,6 +21,16 @@ variable "runner_subnet_id" {
   type        = string
 }
 
+variable "private_endpoint_subnet_id" {
+  description = "Subnet the Key Vault's Private Endpoint is placed in (modules/hub-network's private_endpoint_subnet_id)."
+  type        = string
+}
+
+variable "vault_private_dns_zone_id" {
+  description = "Private DNS zone id for privatelink.vaultcore.azure.net (modules/hub-network's vault_private_dns_zone_id)."
+  type        = string
+}
+
 variable "github_repo" {
   description = "\"<owner>/<repo>\" the runners register against."
   type        = string
