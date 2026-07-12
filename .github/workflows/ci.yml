@@ -38,6 +38,7 @@ jobs:
       - uses: autero1/action-terragrunt@v3
         with:
           terragrunt-version: latest
+          token: ${{ github.token }}
       - run: terragrunt --working-dir azure hcl format --check
 
   license-headers:

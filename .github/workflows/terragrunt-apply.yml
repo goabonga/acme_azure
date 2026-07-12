@@ -63,6 +63,7 @@ jobs:
       - uses: autero1/action-terragrunt@v3
         with:
           terragrunt-version: latest
+          token: ${{ github.token }}
       - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}

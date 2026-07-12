@@ -87,6 +87,7 @@ jobs:
       - uses: autero1/action-terragrunt@v3
         with:
           terragrunt-version: latest
+          token: ${{ github.token }}
       - name: Install yq
         run: |
           mkdir -p "$HOME/.local/bin"
