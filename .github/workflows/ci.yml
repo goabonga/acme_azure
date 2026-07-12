@@ -112,6 +112,12 @@ jobs:
           directory: modules
           quiet: true
           output_format: cli
+          # CKV_SECRET_6 ("Base64 High Entropy String") false-positives on
+          # the literal Key Vault secret NAME "github-runner-pat" in
+          # modules/hub-runners/main.tf (`pat_secret_name = "..."`) - that's
+          # what secret to read at boot, not a secret value itself. See
+          # https://github.com/goabonga/acme_azure/actions/runs/29200510249.
+          skip_check: CKV_SECRET_6
 
   trivy:
     name: trivy
