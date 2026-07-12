@@ -40,7 +40,12 @@ jobs:
   apply:
     name: apply (${{ needs.resolve-env.outputs.env }})
     needs: [resolve-env]
-    runs-on: ubuntu-latest
+    # `ubuntu-latest` until an operator flips this environment's
+    # `RUNNER_LABEL` variable to the hub self-hosted pool - see
+    # CONTRIBUTING.md#deploying-an-environment. `hub` itself bootstraps on
+    # `ubuntu-latest` (the runner doesn't exist yet) and switches over once
+    # azure/hub/runners has been applied.
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     # Protect this environment (Settings -> Environments -> required
     # reviewers) for a second gate on top of deploy/<env> branch protection.
     environment: ${{ needs.resolve-env.outputs.env }}

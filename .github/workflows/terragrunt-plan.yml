@@ -59,7 +59,13 @@ jobs:
       fail-fast: false
       matrix:
         env: ${{ fromJson(needs.discover-envs.outputs.envs) }}
-    runs-on: ubuntu-latest
+    # `ubuntu-latest` until an operator flips the `<env>-plan` GitHub
+    # Environment's `RUNNER_LABEL` variable to the hub self-hosted pool
+    # (once it can reach that environment's storage privately) - see
+    # CONTRIBUTING.md#deploying-an-environment. Falls back automatically
+    # since GitHub-hosted runners still work (public network access) until
+    # then.
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     # Read-only Azure credentials, scoped per environment. Separate from the
     # `${{ matrix.env }}` environment used by terragrunt-apply.yml so
     # protecting the apply environment with required reviewers does not
