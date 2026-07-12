@@ -11,3 +11,11 @@ remote_state:
   storage_account_name:
   # container_name - Blob container inside the storage account.
   container_name:
+plans:
+  # storage_account_name - Private storage account terragrunt-plan.yml
+  # uploads full `terragrunt plan` output to. Not posted to the PR (public
+  # repo): only a summary goes there, reviewers with Azure RBAC on this
+  # container fetch the full plan themselves. See CONTRIBUTING.md.
+  storage_account_name:
+  # container_name - Blob container inside the storage account.
+  container_name:

@@ -33,6 +33,8 @@ changelogged independently — see [Versioning and release](#versioning-and-rele
 - [Terraform](https://www.terraform.io) / [OpenTofu](https://opentofu.org)
 - [Terragrunt](https://terragrunt.gruntwork.io) (>= v0.73, new CLI)
 - [Azure CLI](https://learn.microsoft.com/cli/azure/), authenticated
+- [`yq`](https://github.com/mikefarah/yq) (Go, `mikefarah/yq`), used by
+  `.bashrc` and `scripts/bootstrap-storage.sh`
 - [uv](https://docs.astral.sh/uv/), for the documentation toolchain and
   `pre-commit`
 

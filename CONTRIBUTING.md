@@ -101,9 +101,20 @@ a plan → review → apply gate instead of releasing immediately:
 
 ### One-time setup (per environment, once the repo has a GitHub remote)
 
-I can write the workflow files but not configure GitHub repo settings —
-someone with admin access needs to do this once per environment:
+I can write the workflow files and the bootstrap script but not configure
+GitHub repo settings or grant Azure RBAC — someone with the right access
+needs to do this once per environment, after filling in
+`configs/config.<env>.yaml`:
 
+- Run `./scripts/bootstrap-storage.sh <env>` (needs `az login` with rights
+  to create resource groups/storage accounts in that subscription). It
+  creates the remote-state storage account/container and the private
+  plans storage account/container, both hardened (TLS1.2+, HTTPS-only, no
+  public blob access, versioning + soft delete).
+- Grant Azure RBAC on those containers: `Storage Blob Data Contributor` on
+  both for the plan/apply identity (`AZURE_CLIENT_ID` below), and
+  `Storage Blob Data Reader` on the plans container for the approver group
+  (so they can fetch the full plan the PR comment points at).
 - Push the `deploy/<env>` branch (created locally from `main`).
 - Protect `deploy/<env>` (Settings → Branches): require a pull request,
   require approval(s) from the authorized group before merging. This is
