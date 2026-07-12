@@ -6,15 +6,34 @@
 # Docs: https://goabonga.github.io/multicz/
 #
 # The repository is not a single package: `docs/` is the Zensical
-# documentation toolchain, `configs/config.<env>.yaml` is a per-environment
-# input set, and `modules/<name>/` (see modules/README.md) will be local
-# Terraform modules. Each gets its own version, changelog and tag - a
-# release of one does not bump the others.
+# documentation toolchain, `azure/terragrunt.hcl` is the Terragrunt root
+# wiring, `configs/config.<env>.yaml` is a per-environment input set, and
+# `modules/<name>/` (see modules/README.md) will be local Terraform modules.
+# Each gets its own version, changelog and tag - a release of one does not
+# bump the others.
 #
-# Adding a new component (new environment or new module): copy an existing
-# [components.*] block below, point `paths` at the new directory/file, and
-# create its `VERSION` (or manifest) + `CHANGELOG.md`. See modules/README.md
-# for the module-specific steps.
+# `docs`, `azure` and `modules-*` release immediately on every push to
+# `main` that touches their paths - the `release` job in
+# .github/workflows/ci.yml bumps every component whose name does NOT start
+# with `configs-` (so a new module component needs no ci.yml edit). They
+# are library/wiring versions, not deployment state.
+#
+# `configs-<env>` components are DIFFERENT: they represent what is actually
+# applied in an Azure environment, so they are excluded from that automatic
+# release and are bumped only by .github/workflows/terragrunt-apply.yml,
+# after `terragrunt apply` succeeds for that environment (see
+# terragrunt-plan.yml / terragrunt-apply.yml for the plan -> PR -> apply
+# flow). Their `depends_on` lists the components whose changes they ship,
+# so the `upstream-notes` plugin below pulls those commits into the deploy's
+# changelog/release notes.
+#
+# Adding a new component:
+# - new environment: copy [components.configs-dev] below, point `paths` at
+#   `configs/config.<env>.yaml`, create `configs/<env>.VERSION` +
+#   `configs/<env>.CHANGELOG.md`, set `depends_on` to whatever it deploys
+#   (at least "azure"), and create a `deploy/<env>` branch from `main`.
+# - new module: see modules/README.md - also add it to `depends_on` of any
+#   `configs-<env>` that deploys it (no ci.yml edit needed).
 
 [project]
 commit_convention = "conventional"
@@ -55,6 +74,15 @@ types = ["fix"]
 title = "Performance"
 types = ["perf"]
 
+# Surfaces upstream (depends_on) commits in a downstream component's
+# changelog/release notes - e.g. what `azure`/`modules-*` changes a
+# `configs-<env>` deploy actually ships. See
+# https://goabonga.github.io/multicz/ for the plugin's baseline-resolution
+# rules.
+[plugins.upstream-notes]
+max_commits = 30
+include_prereleases = false
+
 # --- docs: the Zensical documentation toolchain -------------------------
 [components.docs]
 paths = ["docs/**", "pyproject.toml", "zensical.toml", "Makefile"]
@@ -64,10 +92,21 @@ bump_files = [
 changelog = "docs/changelog.md"
 post_bump = ["uv lock"]
 
-# --- configs-dev: the dev environment input set --------------------------
+# --- azure: the Terragrunt root wiring (providers, backend, versions) ---
+[components.azure]
+paths = ["azure/**"]
+bump_files = [
+    { file = "azure/VERSION" },
+]
+changelog = "azure/CHANGELOG.md"
+
+# --- configs-dev: the dev environment - deployed state, not a library ---
+# Bumped only by terragrunt-apply.yml after a successful apply, never by
+# the generic ci.yml `release` job. See the module docstring above.
 [components.configs-dev]
 paths = ["configs/config.dev.yaml"]
 bump_files = [
     { file = "configs/dev.VERSION" },
 ]
 changelog = "configs/dev.CHANGELOG.md"
+depends_on = ["azure"]
