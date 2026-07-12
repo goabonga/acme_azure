@@ -1,27 +1,12 @@
 {
   "version": 1,
-  "git_head": "08c71b2dea36bc07c43d2e5a5500b9f96620c3bd",
-  "git_head_short": "08c71b2",
-  "timestamp": "2026-07-12T19:29:36Z",
+  "git_head": "a62f532d221a50043c40008a949b73b64998186b",
+  "git_head_short": "a62f532",
+  "timestamp": "2026-07-12T19:44:35Z",
   "components": {
-    "azure": {
-      "version": "0.0.1",
-      "tag": "azure-v0.0.1",
-      "tag_sha": null
-    },
-    "modules-hub-network": {
+    "configs-hub": {
       "version": "0.1.0",
-      "tag": "modules-hub-network-v0.1.0",
-      "tag_sha": null
-    },
-    "modules-hub-storage-endpoints": {
-      "version": "0.1.0",
-      "tag": "modules-hub-storage-endpoints-v0.1.0",
-      "tag_sha": null
-    },
-    "modules-hub-runners": {
-      "version": "0.1.0",
-      "tag": "modules-hub-runners-v0.1.0",
+      "tag": "configs-hub-v0.1.0",
       "tag_sha": null
     }
   }
