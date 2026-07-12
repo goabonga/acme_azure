@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Chris <goabonga@pm.me>
+
+# multicz.toml - per-component versioning, changelogs and tags for the
+# ACME Azure landing zone. Driven by Conventional Commits.
+# Docs: https://goabonga.github.io/multicz/
+#
+# The repository is not a single package: `docs/` is the Zensical
+# documentation toolchain, `configs/config.<env>.yaml` is a per-environment
+# input set, and `modules/<name>/` (see modules/README.md) will be local
+# Terraform modules. Each gets its own version, changelog and tag - a
+# release of one does not bump the others.
+#
+# Adding a new component (new environment or new module): copy an existing
+# [components.*] block below, point `paths` at the new directory/file, and
+# create its `VERSION` (or manifest) + `CHANGELOG.md`. See modules/README.md
+# for the module-specific steps.
+
+[project]
+commit_convention = "conventional"
+tag_format = "{component}-v{version}"
+initial_version = "0.0.0"
+# Regenerate uv.lock after a `docs` bump so the lockfile tracks the new
+# version; without `allow` multicz skips the hook and the next
+# `uv sync --frozen` in CI fails on lockfile drift.
+post_bump_policy = "allow"
+state_file = ".multicz/state.json"
+
+[project.bump_rules]
+feat = "minor"
+fix = "patch"
+perf = "patch"
+revert = "patch"
+deprecate = "minor"
+remove = "minor"
+
+# Keep-a-Changelog buckets; commits route to the section whose `types` match.
+[[project.changelog_sections]]
+title = "Added"
+types = ["feat"]
+
+[[project.changelog_sections]]
+title = "Deprecated"
+types = ["deprecate"]
+
+[[project.changelog_sections]]
+title = "Removed"
+types = ["remove"]
+
+[[project.changelog_sections]]
+title = "Fixed"
+types = ["fix"]
+
+[[project.changelog_sections]]
+title = "Performance"
+types = ["perf"]
+
+# --- docs: the Zensical documentation toolchain -------------------------
+[components.docs]
+paths = ["docs/**", "pyproject.toml", "zensical.toml", "Makefile"]
+bump_files = [
+    { file = "pyproject.toml", key = "project.version" },
+]
+changelog = "docs/changelog.md"
+post_bump = ["uv lock"]
+
+# --- configs-dev: the dev environment input set --------------------------
+[components.configs-dev]
+paths = ["configs/config.dev.yaml"]
+bump_files = [
+    { file = "configs/dev.VERSION" },
+]
+changelog = "configs/dev.CHANGELOG.md"
