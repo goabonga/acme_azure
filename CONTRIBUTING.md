@@ -170,8 +170,37 @@ needs to do this once per environment, after filling in
 - Add `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` secrets
   to both environments, backed by an Azure AD app registration with a
   federated credential trusting GitHub OIDC for this repo (no client
-  secret needed) — see
-  [Azure's GitHub Actions OIDC guide](https://learn.microsoft.com/azure/developer/github/connect-from-azure).
+  secret to store or rotate). One app registration per environment (least
+  privilege - a compromised `dev` identity shouldn't reach `prod`):
+
+  ```bash
+  az login
+  APP_ID=$(az ad app create --display-name "acme-azure-<env>" --query appId -o tsv)
+  az ad sp create --id "$APP_ID"
+  TENANT_ID=$(az account show --query tenantId -o tsv)
+
+  # One federated credential per GitHub Environment name that uses this
+  # identity - subject must match exactly (repo:<owner>/<repo>:environment:<name>).
+  for GH_ENV in "<env>-plan" "<env>"; do
+    az ad app federated-credential create --id "$APP_ID" --parameters "{
+      \"name\": \"gh-${GH_ENV//\//-}\",
+      \"issuer\": \"https://token.actions.githubusercontent.com\",
+      \"subject\": \"repo:goabonga/acme_azure:environment:${GH_ENV}\",
+      \"audiences\": [\"api://AzureADTokenExchange\"]
+    }"
+  done
+
+  gh secret set AZURE_CLIENT_ID       --env "<env>-plan" --body "$APP_ID"
+  gh secret set AZURE_TENANT_ID       --env "<env>-plan" --body "$TENANT_ID"
+  gh secret set AZURE_SUBSCRIPTION_ID --env "<env>-plan" --body "$(yq -r '.subscription.id' configs/config.<env>.yaml)"
+  # repeat the three `gh secret set` for --env "<env>" too
+  ```
+
+  Then grant this app's service principal (`$APP_ID`) the RBAC roles from
+  the previous bullet (and, once real infrastructure exists, whatever it
+  needs to manage that environment's resources) — see
+  [Azure's GitHub Actions OIDC guide](https://learn.microsoft.com/azure/developer/github/connect-from-azure)
+  for background on the federated-credential mechanism itself.
 
 ### How the pipelines authenticate to "private" storage
 
