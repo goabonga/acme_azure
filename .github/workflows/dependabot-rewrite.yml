@@ -13,6 +13,10 @@ name: dependabot-rewrite
 # the default GITHUB_TOKEN) but ci.yml never re-runs against the new SHA
 # (GITHUB_TOKEN pushes don't trigger other workflows) - fine if branch
 # protection doesn't require status checks, a stuck PR otherwise.
+#
+# No workflow_dispatch here (unlike terragrunt-plan.yml): every step below
+# reads github.event.pull_request.*, which doesn't exist outside a real
+# pull_request_target event - a manual dispatch would just fail.
 
 on:
   pull_request_target:

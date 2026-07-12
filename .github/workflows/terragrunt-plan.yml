@@ -25,6 +25,7 @@ on:
       - "configs/**"
       - "azure/**"
       - "modules/**"
+  workflow_dispatch: {}
 
 concurrency:
   group: terragrunt-plan-${{ github.ref }}
