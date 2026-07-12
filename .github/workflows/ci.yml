@@ -154,32 +154,39 @@ jobs:
           KEY_ID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/{print $5; exit}')
           git config user.signingkey "$KEY_ID"
       - name: Plan release
-        run: uv tool run multicz plan --summary "$GITHUB_STEP_SUMMARY"
+        id: plan
+        run: |
+          set -euo pipefail
+          uv tool run multicz plan --summary "$GITHUB_STEP_SUMMARY"
+          # configs-<env> components are deployment state, not a library -
+          # they release only from terragrunt-apply.yml after a successful
+          # `terragrunt apply`, never from this generic push-to-main job.
+          PLAN=$(uv tool run multicz plan --output json)
+          COMPONENTS=$(echo "$PLAN" | jq -r '.bumps | keys[] | select(startswith("configs-") | not)')
+          ARGS=""
+          for c in $COMPONENTS; do ARGS="$ARGS --component $c"; done
+          echo "args=$ARGS" >> "$GITHUB_OUTPUT"
+          if [ -n "$COMPONENTS" ]; then echo "has_bumps=true" >> "$GITHUB_OUTPUT";
+          else echo "has_bumps=false" >> "$GITHUB_OUTPUT"; fi
       - name: Bump, commit, tag, push (signed)
         id: bump_signed
-        if: steps.gpg.outputs.available == 'true'
+        if: steps.plan.outputs.has_bumps == 'true' && steps.gpg.outputs.available == 'true'
         run: |
           set -euo pipefail
-          PLAN=$(uv tool run multicz bump --commit --tag --push --sign --output json)
-          BUMPED=$(echo "$PLAN" | jq -r '.bumps | keys | join(" ")')
-          if [ -z "$BUMPED" ]; then echo "no_bumps=true" >> "$GITHUB_OUTPUT";
-          else echo "no_bumps=false" >> "$GITHUB_OUTPUT"; fi
+          uv tool run multicz bump ${{ steps.plan.outputs.args }} --commit --tag --push --sign --output json
       - name: Bump, commit, tag, push
         id: bump_unsigned
-        if: steps.gpg.outputs.available != 'true'
+        if: steps.plan.outputs.has_bumps == 'true' && steps.gpg.outputs.available != 'true'
         run: |
           set -euo pipefail
-          PLAN=$(uv tool run multicz bump --commit --tag --push --output json)
-          BUMPED=$(echo "$PLAN" | jq -r '.bumps | keys | join(" ")')
-          if [ -z "$BUMPED" ]; then echo "no_bumps=true" >> "$GITHUB_OUTPUT";
-          else echo "no_bumps=false" >> "$GITHUB_OUTPUT"; fi
+          uv tool run multicz bump ${{ steps.plan.outputs.args }} --commit --tag --push --output json
       - name: Resolve release outputs
         id: bump
         run: |
-          if [ "${{ steps.gpg.outputs.available }}" = "true" ]; then
-            echo 'no_bumps=${{ steps.bump_signed.outputs.no_bumps }}' >> "$GITHUB_OUTPUT"
+          if [ "${{ steps.plan.outputs.has_bumps }}" != "true" ]; then
+            echo "no_bumps=true" >> "$GITHUB_OUTPUT"
           else
-            echo 'no_bumps=${{ steps.bump_unsigned.outputs.no_bumps }}' >> "$GITHUB_OUTPUT"
+            echo "no_bumps=false" >> "$GITHUB_OUTPUT"
           fi
 
   docs:
