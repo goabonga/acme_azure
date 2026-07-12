@@ -3,19 +3,19 @@
 
 subscription:
   # id - Azure subscription id activated by `switch_env dev`.
-  id:
+  id: 980de408-b1e8-46ea-87e0-a1d5c0660dbd
 remote_state:
   # resource_group_name - Resource group holding the state storage account.
-  resource_group_name:
+  resource_group_name: rg-acme-azure-dev
   # storage_account_name - Storage account used as the azurerm remote state backend.
-  storage_account_name:
+  storage_account_name: acmeazuredevstate
   # container_name - Blob container inside the storage account.
-  container_name:
+  container_name: tfstate
 plans:
   # storage_account_name - Private storage account terragrunt-plan.yml
   # uploads full `terragrunt plan` output to. Not posted to the PR (public
   # repo): only a summary goes there, reviewers with Azure RBAC on this
   # container fetch the full plan themselves. See CONTRIBUTING.md.
-  storage_account_name:
+  storage_account_name: acmeazuredevplans
   # container_name - Blob container inside the storage account.
-  container_name:
+  container_name: plans
