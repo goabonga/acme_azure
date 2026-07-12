@@ -34,6 +34,10 @@
 #   (at least "azure"), and create a `deploy/<env>` branch from `main`.
 # - new module: see modules/README.md - also add it to `depends_on` of any
 #   `configs-<env>` that deploys it (no ci.yml edit needed).
+# - environment-specific terragrunt units (e.g. `azure/hub/**`, unlike the
+#   shared root `azure/terragrunt.hcl`): belong to that environment's
+#   `configs-<env>.paths`, NOT the generic `azure` component - otherwise
+#   they'd auto-release without ever going through the deploy gate.
 
 [project]
 commit_convention = "conventional"
@@ -93,8 +97,10 @@ changelog = "docs/changelog.md"
 post_bump = ["uv lock"]
 
 # --- azure: the Terragrunt root wiring (providers, backend, versions) ---
+# Only the shared root file - NOT azure/<env>/** (environment-specific
+# units belong to that environment's configs-<env> component instead).
 [components.azure]
-paths = ["azure/**"]
+paths = ["azure/terragrunt.hcl", "azure/VERSION", "azure/CHANGELOG.md"]
 bump_files = [
     { file = "azure/VERSION" },
 ]
@@ -109,4 +115,16 @@ bump_files = [
     { file = "configs/dev.VERSION" },
 ]
 changelog = "configs/dev.CHANGELOG.md"
+depends_on = ["azure"]
+
+# --- configs-hub: the hub network + self-hosted runners - deployed state -
+# azure/hub/** (its own terragrunt units, not shared with other
+# environments) counts toward ITS bump, unlike azure/<env>/** for other
+# environments which would just be shared azure/modules components.
+[components.configs-hub]
+paths = ["configs/config.hub.yaml", "azure/hub/**"]
+bump_files = [
+    { file = "configs/hub.VERSION" },
+]
+changelog = "configs/hub.CHANGELOG.md"
 depends_on = ["azure"]

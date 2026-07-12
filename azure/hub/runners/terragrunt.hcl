@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Chris <goabonga@pm.me>
+
+include "root" {
+  path   = find_in_parent_folders()
+  expose = true
+}
+
+terraform {
+  source = "../../../modules/hub-runners"
+}
+
+locals {
+  config = include.root.locals.config
+}
+
+dependency "network" {
+  config_path = "../network"
+
+  mock_outputs = {
+    runner_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mock/providers/Microsoft.Network/virtualNetworks/mock/subnets/mock"
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+}
+
+inputs = {
+  name                 = "hub"
+  resource_group_name  = local.config.hub.resource_group_name
+  location             = local.config.hub.location
+  runner_subnet_id     = dependency.network.outputs.runner_subnet_id
+  github_repo          = local.config.hub.runners.github_repo
+  runner_labels        = local.config.hub.runners.runner_labels
+  runner_version       = local.config.hub.runners.runner_version
+  vm_size              = local.config.hub.runners.vm_size
+  instances            = local.config.hub.runners.instances
+  admin_username       = local.config.hub.runners.admin_username
+  admin_ssh_public_key = local.config.hub.runners.admin_ssh_public_key
+  tags                 = { environment = "hub" }
+}

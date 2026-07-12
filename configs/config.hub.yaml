@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Chris <goabonga@pm.me>
+
+subscription:
+  # id - Azure subscription id the hub network/runners are created in.
+  id:
+remote_state:
+  # resource_group_name - Resource group holding the state storage account.
+  resource_group_name:
+  # storage_account_name - Storage account used as the azurerm remote state backend.
+  storage_account_name:
+  # container_name - Blob container inside the storage account.
+  container_name:
+plans:
+  # storage_account_name - Private storage account terragrunt-plan.yml
+  # uploads full `terragrunt plan` output to.
+  storage_account_name:
+  # container_name - Blob container inside the storage account.
+  container_name:
+hub:
+  # resource_group_name - Resource group for the hub network + runners.
+  resource_group_name:
+  # location - Azure region. See docs/index.md (EU residency).
+  location: francecentral
+  network:
+    address_space:
+      - 10.0.0.0/16
+    runner_subnet_prefixes:
+      - 10.0.1.0/24
+    private_endpoint_subnet_prefixes:
+      - 10.0.2.0/24
+  runners:
+    # github_repo - "<owner>/<repo>" the runners register against.
+    github_repo: goabonga/acme_azure
+    # runner_labels - comma-separated, no spaces. All environments whose
+    # GitHub Environment `RUNNER_LABEL` variable matches this share this
+    # pool - see CONTRIBUTING.md.
+    runner_labels: self-hosted,azure,hub
+    # runner_version - actions/runner release to install.
+    runner_version: 2.321.0
+    # vm_size - VMSS instance size.
+    vm_size: Standard_D2s_v5
+    # instances - fixed capacity. 0 until scripts/bootstrap-runner.sh does
+    # the first scale-out (no event-driven autoscaler yet).
+    instances: 0
+    # admin_username - local admin user for operator troubleshooting.
+    admin_username: runneradmin
+    # admin_ssh_public_key - matching SSH public key (no password auth).
+    admin_ssh_public_key:
+  # storage_endpoints - one entry per environment storage account to reach
+  # privately from the hub VNet. `key` must be unique. Add one pair (state
+  # + plans) per environment registered in configs/config.<env>.yaml.
+  storage_endpoints:
+    - key: dev-state
+      resource_group_name:
+      storage_account_name:
+    - key: dev-plans
+      resource_group_name:
+      storage_account_name:
