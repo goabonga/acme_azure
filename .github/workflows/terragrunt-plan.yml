@@ -1,0 +1,183 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Chris <goabonga@pm.me>
+
+# Runs `terragrunt plan` for every environment whenever a change that can
+# affect its deployed state lands on `main` (configs/**, azure/**,
+# modules/**). If the plan has changes, opens/updates a PR from `main` into
+# `deploy/<env>` with a plan SUMMARY (add/change/destroy counts only) -
+# merging that PR (once approved per the branch's protection rules)
+# triggers terragrunt-apply.yml.
+#
+# The full plan (resource names/attributes) is NOT posted to the PR or
+# printed to the job log - both are public on a public repo. It is
+# uploaded to a private Azure Blob container instead (`plans.*` in
+# configs/config.<env>.yaml); reviewers with Azure RBAC on that container
+# fetch it themselves. See CONTRIBUTING.md for the one-time setup
+# (deploy/<env> branches, branch protection, Azure OIDC secrets, plans
+# storage account).
+
+name: terragrunt-plan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "configs/**"
+      - "azure/**"
+      - "modules/**"
+
+concurrency:
+  group: terragrunt-plan-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  discover-envs:
+    name: discover-envs
+    runs-on: ubuntu-latest
+    outputs:
+      envs: ${{ steps.list.outputs.envs }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: list
+        run: |
+          set -euo pipefail
+          envs=$(for f in configs/config.*.yaml; do
+            name=$(basename "$f")
+            name=${name#config.}
+            name=${name%.yaml}
+            echo "$name"
+          done | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "envs=$envs" >> "$GITHUB_OUTPUT"
+
+  plan:
+    name: plan (${{ matrix.env }})
+    needs: [discover-envs]
+    strategy:
+      fail-fast: false
+      matrix:
+        env: ${{ fromJson(needs.discover-envs.outputs.envs) }}
+    runs-on: ubuntu-latest
+    # Read-only Azure credentials, scoped per environment. Separate from the
+    # `${{ matrix.env }}` environment used by terragrunt-apply.yml so
+    # protecting the apply environment with required reviewers does not
+    # block this automatic plan step.
+    environment: ${{ matrix.env }}-plan
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write # required for azure/login OIDC
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+      - uses: autero1/action-terragrunt@v3
+        with:
+          terragrunt-version: latest
+      - name: Install yq
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL -o "$HOME/.local/bin/yq" \
+            "https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64"
+          chmod +x "$HOME/.local/bin/yq"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terragrunt plan
+        id: tg
+        env:
+          ENV: ${{ matrix.env }}
+        run: |
+          set +e
+          terragrunt --non-interactive --working-dir azure \
+            run --all -- plan -detailed-exitcode -no-color -input=false \
+            > "plan-${ENV}.txt" 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+      - name: Show plan summary
+        # Only the "Plan: N to add, M to change, ..." line(s), never full
+        # resource-level detail, since job logs are public on a public repo.
+        run: |
+          grep -E '^Plan: ' "plan-${{ matrix.env }}.txt" || echo "(no summary line - see exit code / job status)"
+      - name: Fail on plan error
+        if: steps.tg.outputs.exit_code == '1'
+        run: exit 1
+
+      - name: Upload full plan and open/update the deploy PR
+        if: steps.tg.outputs.exit_code == '2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENV_NAME: ${{ matrix.env }}
+        run: |
+          set -euo pipefail
+          BASE="deploy/${ENV_NAME}"
+          if ! gh api "repos/${{ github.repository }}/branches/${BASE}" >/dev/null 2>&1; then
+            echo "::error::branch ${BASE} does not exist on origin - create it once from main (see CONTRIBUTING.md)"
+            exit 1
+          fi
+
+          # Full plan holds resource names/attributes - keep it out of the
+          # PR comment (public on a public repo). Upload it to the private
+          # plans storage account instead; reviewers with Azure RBAC on
+          # that container fetch it themselves - no bearer link is posted.
+          CONFIG="configs/config.${ENV_NAME}.yaml"
+          ACCOUNT=$(yq -r '.plans.storage_account_name' "$CONFIG")
+          CONTAINER=$(yq -r '.plans.container_name' "$CONFIG")
+          BLOB="${ENV_NAME}/${{ github.run_id }}/plan.txt"
+          az storage blob upload \
+            --auth-mode login \
+            --account-name "$ACCOUNT" \
+            --container-name "$CONTAINER" \
+            --name "$BLOB" \
+            --file "plan-${ENV_NAME}.txt" \
+            --overwrite \
+            --only-show-errors
+
+          PR_NUMBER=$(gh pr list --base "$BASE" --head main --state open --json number --jq '.[0].number // empty')
+          SUMMARY=$(grep -E '^Plan: ' "plan-${ENV_NAME}.txt" || echo "(no per-unit summary line found - see the full plan)")
+          BODY_FILE=$(mktemp)
+          {
+            echo "Terragrunt detected pending changes for **${ENV_NAME}**. Merging this PR"
+            echo "(once approved) triggers \`terragrunt apply\` for ${ENV_NAME}."
+            echo
+            echo "**Summary**"
+            echo '```'
+            echo "$SUMMARY"
+            echo '```'
+            echo
+            echo "The full plan (resource names/attributes) is private - reviewers with Azure"
+            echo "RBAC on the \`${CONTAINER}\` container can fetch it:"
+            echo
+            echo '```bash'
+            echo "az storage blob download --auth-mode login \\"
+            echo "  --account-name ${ACCOUNT} --container-name ${CONTAINER} \\"
+            echo "  --name \"${BLOB}\" -f - --only-show-errors"
+            echo '```'
+          } > "$BODY_FILE"
+          if [ -z "$PR_NUMBER" ]; then
+            gh pr create --base "$BASE" --head main \
+              --title "deploy(${ENV_NAME}): apply pending terragrunt plan" \
+              --body-file "$BODY_FILE"
+          else
+            gh pr comment "$PR_NUMBER" --body-file "$BODY_FILE"
+          fi
+
+      - name: Close stale deploy PR (plan is clean)
+        if: steps.tg.outputs.exit_code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENV_NAME: ${{ matrix.env }}
+        run: |
+          set -euo pipefail
+          BASE="deploy/${ENV_NAME}"
+          PR_NUMBER=$(gh pr list --base "$BASE" --head main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr comment "$PR_NUMBER" --body "Plan is now clean (no pending changes) - closing."
+            gh pr close "$PR_NUMBER"
+          fi
