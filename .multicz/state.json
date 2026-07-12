@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "git_head": "dc22720c95c3d5dfa3b81ac3e99cc22d8d641c2d",
-  "git_head_short": "dc22720",
-  "timestamp": "2026-07-12T19:08:57Z",
+  "git_head": "08c71b2dea36bc07c43d2e5a5500b9f96620c3bd",
+  "git_head_short": "08c71b2",
+  "timestamp": "2026-07-12T19:29:36Z",
   "components": {
     "azure": {
       "version": "0.0.1",

@@ -251,26 +251,53 @@ yet to run the pipeline that creates it.
    `hub`/`hub-plan` GitHub Environments' `RUNNER_LABEL` variable **unset**
    for now - the first apply runs on `ubuntu-latest`, same as any other
    environment before this section existed.
-4. Grant the `hub-plan`/`hub-apply` identities `Reader` on every
-   environment's state + plans storage accounts listed in
-   `hub.storage_endpoints.entries` - `hub-storage-endpoints` looks each one
-   up as a data source (to build a Private Endpoint into it) before it can
-   create anything, so the very first `terragrunt plan` for `hub` 403s
-   without this (the per-environment RBAC table above only covers each
-   identity's *own* environment, not the ones `hub` reaches into):
+4. Grant the `hub-plan`/`hub-apply` identities RBAC on every environment
+   listed in `hub.storage_endpoints.entries` (the per-environment RBAC
+   table above only covers each identity's *own* environment, not the
+   ones `hub` reaches into):
+
+   - **Both identities**, `Reader` on the state + plans storage accounts -
+     `hub-storage-endpoints` looks each one up as a data source (to build
+     a Private Endpoint into it) before it can create anything, so the
+     very first `terragrunt plan` for `hub` 403s without this.
+   - **`hub-apply` only**, `Storage Account Contributor` on the same
+     storage accounts (superset of the `Reader` above) - creating a
+     Private Endpoint also requires approving the connection on the
+     *target* resource (`PrivateEndpointConnectionsApproval/action`),
+     which plain `Reader` doesn't grant.
+   - **`hub-apply` only**, `User Access Administrator` scoped to just the
+     `kv-hub-runners` Key Vault resource (not the whole hub resource
+     group) - `hub-runners` grants the runner's own managed identity
+     `Key Vault Secrets User` on that vault
+     (`azurerm_role_assignment.runner_reads_pat`), and `Contributor`
+     deliberately excludes `Microsoft.Authorization/roleAssignments/write`.
+     Scoping this to the one Key Vault resource limits the blast radius of
+     an otherwise broad role.
 
    ```bash
-   for OID in <hub-plan-object-id> <hub-apply-object-id>; do
-     for ACCOUNT in <env>state <env>plans; do
-       az role assignment create --assignee-object-id "$OID" \
-         --assignee-principal-type ServicePrincipal --role Reader \
-         --scope "$(az storage account show --name "$ACCOUNT" \
-           --resource-group rg-acme-azure-<env> --query id -o tsv)"
-     done
+   PLAN_OID=<hub-plan-object-id>
+   APPLY_OID=<hub-apply-object-id>
+   KV_ID=$(az keyvault show --name kv-hub-runners \
+     --resource-group rg-acme-azure-hub --query id -o tsv)
+
+   for ACCOUNT in <env>state <env>plans; do
+     SCOPE=$(az storage account show --name "$ACCOUNT" \
+       --resource-group rg-acme-azure-<env> --query id -o tsv)
+     az role assignment create --assignee-object-id "$PLAN_OID" \
+       --assignee-principal-type ServicePrincipal --role Reader --scope "$SCOPE"
+     az role assignment create --assignee-object-id "$APPLY_OID" \
+       --assignee-principal-type ServicePrincipal \
+       --role "Storage Account Contributor" --scope "$SCOPE"
    done
+
+   az role assignment create --assignee-object-id "$APPLY_OID" \
+     --assignee-principal-type ServicePrincipal \
+     --role "User Access Administrator" --scope "$KV_ID"
    ```
 
-   Repeat per environment registered in `hub.storage_endpoints.entries`.
+   Repeat the storage-account loop per environment registered in
+   `hub.storage_endpoints.entries` (the Key Vault grant is only needed
+   once).
 5. Let `terragrunt-plan.yml` → PR → `terragrunt-apply.yml` run once for
    `hub`, same as any other environment (see the numbered flow above).
    This creates the VNet, Private Endpoints, VMSS (0 instances), Key Vault
