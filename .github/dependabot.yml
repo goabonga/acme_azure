@@ -67,7 +67,9 @@ updates:
           - "astral-sh/*"
           - "hashicorp/*"
           - "gruntwork-io/*"
-          - "google/*"
+          - "autero1/*"
+          - "bridgecrewio/*"
+          - "aquasecurity/*"
     commit-message:
       prefix: "ci"
     labels:

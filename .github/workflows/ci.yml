@@ -80,24 +80,32 @@ jobs:
       - run: uv sync --frozen --all-groups
       - run: uvx pip-audit --skip-editable --path .venv
 
-  osv-scanner:
-    name: osv-scanner
+  checkov:
+    name: checkov
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Install OSV-Scanner
-        run: |
-          mkdir -p "$HOME/.local/bin"
-          curl -sSfL \
-            "https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64" \
-            -o "$HOME/.local/bin/osv-scanner"
-          chmod +x "$HOME/.local/bin/osv-scanner"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - run: osv-scanner scan source --lockfile=uv.lock
+      - uses: bridgecrewio/checkov-action@v12.1347.0
+        with:
+          directory: modules
+          quiet: true
+          output_format: cli
+
+  trivy:
+    name: trivy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: modules
+          exit-code: "1"
+          severity: "HIGH,CRITICAL"
 
   release:
     name: release
-    needs: [terraform-fmt, terragrunt-hclfmt, license-headers, docs-build, pip-audit, osv-scanner]
+    needs: [terraform-fmt, terragrunt-hclfmt, license-headers, docs-build, pip-audit, checkov, trivy]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
