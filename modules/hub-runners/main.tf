@@ -3,6 +3,15 @@
 
 data "azurerm_client_config" "current" {}
 
+# These are ephemeral, single-job runners (see cloud-init.sh.tftpl) -
+# interactive SSH troubleshooting isn't part of the normal workflow, so
+# there's no external key to provide or rotate. Terraform generates one;
+# it's retrievable (sensitive output) from state for the rare case an
+# operator needs to debug a live instance before it self-terminates.
+resource "tls_private_key" "runner_admin" {
+  algorithm = "ED25519"
+}
+
 resource "azurerm_user_assigned_identity" "runner" {
   name                = "id-${var.name}-runner"
   resource_group_name = var.resource_group_name
@@ -101,7 +110,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "runners" {
 
   admin_ssh_key {
     username   = var.admin_username
-    public_key = var.admin_ssh_public_key
+    public_key = tls_private_key.runner_admin.public_key_openssh
   }
 
   source_image_reference {

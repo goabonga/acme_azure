@@ -39,6 +39,5 @@ inputs = {
   vm_size                    = local.config.hub.runners.vm_size
   instances                  = local.config.hub.runners.instances
   admin_username             = local.config.hub.runners.admin_username
-  admin_ssh_public_key       = local.config.hub.runners.admin_ssh_public_key
   tags                       = { environment = "hub" }
 }

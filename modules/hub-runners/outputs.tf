@@ -25,3 +25,9 @@ output "key_vault_id" {
 output "nat_gateway_public_ip" {
   value = azurerm_public_ip.nat.ip_address
 }
+
+output "admin_ssh_private_key" {
+  description = "Terraform-generated SSH private key for admin_username, for the rare case an operator needs to debug a live (pre-self-termination) instance. `terraform output -raw admin_ssh_private_key`."
+  value       = tls_private_key.runner_admin.private_key_openssh
+  sensitive   = true
+}

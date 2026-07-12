@@ -21,9 +21,6 @@ variables {
   private_endpoint_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub-test/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/snet-pe"
   vault_private_dns_zone_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub-test/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net"
   github_repo                = "goabonga/acme_azure"
-  # A syntactically-valid but throwaway test-only keypair - azurerm decodes
-  # the SSH public key blob client-side, so a placeholder string fails.
-  admin_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDfx7c/83GMlhDGHutBdBgPXgYPUbop8ES3nPWbfZge4 test@example.com"
 }
 
 run "key_vault_has_no_public_network_access" {

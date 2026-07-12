@@ -71,11 +71,6 @@ variable "admin_username" {
   default     = "runneradmin"
 }
 
-variable "admin_ssh_public_key" {
-  description = "SSH public key for `admin_username`, for operator troubleshooting access."
-  type        = string
-}
-
 variable "tags" {
   description = "Tags applied to every resource."
   type        = map(string)

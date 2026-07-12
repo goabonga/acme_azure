@@ -53,9 +53,10 @@ hub:
     # the first scale-out (no event-driven autoscaler yet).
     instances: 0
     # admin_username - local admin user for operator troubleshooting.
+    # No admin_ssh_public_key: Terraform generates a keypair itself (see
+    # modules/hub-runners) - these are ephemeral, single-job runners, not
+    # meant for interactive SSH access.
     admin_username: runneradmin
-    # admin_ssh_public_key - matching SSH public key (no password auth).
-    admin_ssh_public_key:
   storage_endpoints:
     # enabled - same pattern, for azure/hub/storage-endpoints.
     enabled: true
