@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Chris <goabonga@pm.me>
+
 [project]
 name = "acme-azure-docs"
 version = "0.0.0"

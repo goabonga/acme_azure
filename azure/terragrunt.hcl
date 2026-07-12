@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2026 Chris <goabonga@pm.me>
+# Copyright (c) 2026 Chris <goabonga@pm.me>
 
 # The 'locals' block defines local variables used within the Terraform configuration.
 locals {

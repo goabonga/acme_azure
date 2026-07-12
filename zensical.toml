@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Chris <goabonga@pm.me>
+
 [project]
 site_name        = "ACME Azure"
 site_description = "ACME Azure landing zone — Terragrunt infrastructure with HDS / ISO 27001 compliance targets."

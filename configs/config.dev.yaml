@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Chris <goabonga@pm.me>
+
 subscription:
   # id - Azure subscription id activated by `switch_env dev`.
   id:
