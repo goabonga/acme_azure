@@ -201,13 +201,30 @@ jobs:
         if: steps.plan.outputs.has_bumps == 'true' && steps.gpg.outputs.available == 'true'
         run: |
           set -euo pipefail
-          uv tool run multicz bump ${{ steps.plan.outputs.args }} --commit --tag --push --sign --output json
+          uv tool run multicz bump ${{ steps.plan.outputs.args }} --commit --tag --push --sign --output json | tee bump-result.json
       - name: Bump, commit, tag, push
         id: bump_unsigned
         if: steps.plan.outputs.has_bumps == 'true' && steps.gpg.outputs.available != 'true'
         run: |
           set -euo pipefail
-          uv tool run multicz bump ${{ steps.plan.outputs.args }} --commit --tag --push --output json
+          uv tool run multicz bump ${{ steps.plan.outputs.args }} --commit --tag --push --output json | tee bump-result.json
+      - name: Create GitHub Releases
+        # `bump` only tags+pushes; it never talks to the GitHub Releases API.
+        # `--target` pins each release to the release commit explicitly, so
+        # it still creates the tag ref via the API even if the plain `git
+        # push --follow-tags` above silently didn't land it on the remote
+        # (observed once already - reported "pushed: yes" with no tag on
+        # the remote).
+        if: steps.plan.outputs.has_bumps == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          COMMIT=$(jq -r '.git.commit' bump-result.json)
+          for tag in $(jq -r '.git.tags[]' bump-result.json); do
+            uv tool run multicz release-notes --tag "$tag" --output md > "notes-${tag}.md"
+            gh release create "$tag" --target "$COMMIT" --title "$tag" --notes-file "notes-${tag}.md"
+          done
       - name: Resolve release outputs
         id: bump
         run: |
