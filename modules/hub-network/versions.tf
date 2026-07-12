@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Chris <goabonga@pm.me>
 
 terraform {
-  required_version = ">= 1.4.6"
+  required_version = ">= 1.7.0" # mock_provider (used by tests/) needs >= 1.7
 
   required_providers {
     azurerm = {
