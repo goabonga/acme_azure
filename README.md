@@ -118,7 +118,12 @@ register a new one.
 
 On every push to `main`, CI computes the bump per component, writes each
 `CHANGELOG.md`, and tags (`<component>-v<version>`). Maintainers do not bump
-versions or edit changelogs by hand.
+versions or edit changelogs by hand — with one exception: `configs-<env>`
+components represent **deployed** state, not a library, so they release
+only after a reviewed `terragrunt apply` (plan → PR into `deploy/<env>` →
+approval → apply → bump). See
+[Deploying an environment](CONTRIBUTING.md#deploying-an-environment) in
+CONTRIBUTING.md for the full flow and the required one-time GitHub setup.
 
 ## Contributing
 
