@@ -33,14 +33,46 @@ workflow runs:
 # Terraform / Terragrunt (azure/, modules/)
 terraform fmt -check -recursive modules
 terragrunt --working-dir azure hcl format --check
+make test          # terraform test for every modules/*/tests/ - see below
 
 # Documentation toolchain (docs/)
 make docs
 
 # Every change, regardless of area
 uv tool run multicz validate --strict
-python scripts/add_license_header.py --path . --types tf,hcl,yml,toml --check
+python scripts/add_license_header.py --path . --types tf,tftpl,hcl,yml,toml --check
 ```
+
+### Running Terraform tests
+
+Every module under `modules/` (copy [`modules/_template/`](modules/_template),
+including its `tests/` skeleton, when adding a new one) has a
+`tests/*.tftest.hcl` file using
+[native Terraform tests](https://developer.hashicorp.com/terraform/language/tests)
+(`terraform test`, requires Terraform >= 1.7 - see each module's
+`versions.tf`). Every `run` block uses `mock_provider "azurerm"`, which
+intercepts every provider call - **no real Azure credentials, subscription,
+or network access needed**, and nothing is ever actually created.
+
+```bash
+make test                              # every module
+cd modules/hub-network && terraform test  # one module
+```
+
+Two gotchas the existing tests already work around, worth knowing before
+adding more:
+
+- azurerm parses resource/data-source ids client-side even against the
+  mocked backend, so any assertion that reads a computed id (directly, or
+  transitively through a resource that references one, e.g.
+  `subnet_id = azurerm_subnet.x.id`) needs an Azure-shaped id, not
+  `mock_provider`'s default random string - add a `mock_resource "<type>"
+  { defaults = { id = "/subscriptions/.../..." } }` (or `mock_data` for a
+  data source) block inside `mock_provider`.
+- Comparing two values that are both "known after apply" (e.g. two
+  resources' computed ids) fails on `command = plan` ("Unknown condition
+  value") - use `command = apply` for that specific `run` block instead
+  (still fully mocked, still no real Azure calls).
 
 ## Commit messages
 
