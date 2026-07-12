@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "git_head": "dc22720c95c3d5dfa3b81ac3e99cc22d8d641c2d",
+  "git_head_short": "dc22720",
+  "timestamp": "2026-07-12T19:08:57Z",
+  "components": {
+    "azure": {
+      "version": "0.0.1",
+      "tag": "azure-v0.0.1",
+      "tag_sha": null
+    },
+    "modules-hub-network": {
+      "version": "0.1.0",
+      "tag": "modules-hub-network-v0.1.0",
+      "tag_sha": null
+    },
+    "modules-hub-storage-endpoints": {
+      "version": "0.1.0",
+      "tag": "modules-hub-storage-endpoints-v0.1.0",
+      "tag_sha": null
+    },
+    "modules-hub-runners": {
+      "version": "0.1.0",
+      "tag": "modules-hub-runners-v0.1.0",
+      "tag_sha": null
+    }
+  }
+}
