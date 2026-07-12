@@ -20,9 +20,13 @@ Azure, scaffolded in the spirit of
 │   ├── dev.VERSION          # version of the dev environment config
 │   └── dev.CHANGELOG.md
 ├── modules/                 # local Terraform modules (each independently versioned)
-│   └── _template/           # copy-paste starting point, see modules/README.md
+│   ├── _template/           # copy-paste starting point, see modules/README.md
+│   ├── hub-network/         # hub VNet + private DNS zone
+│   ├── hub-storage-endpoints/ # private endpoints into environment storage
+│   └── hub-runners/         # ephemeral self-hosted GitHub runner VMSS
 └── azure/
-    └── terragrunt.hcl       # root config: providers, azurerm backend, versions
+    ├── terragrunt.hcl       # root config: providers, azurerm backend, versions
+    └── hub/                 # the hub's own terragrunt units (network, runners, ...)
 ```
 
 Each environment config and each Terraform module is versioned, tagged and
@@ -126,6 +130,12 @@ only after a reviewed `terragrunt apply` (plan → PR into `deploy/<env>` →
 approval → apply → bump). See
 [Deploying an environment](CONTRIBUTING.md#deploying-an-environment) in
 CONTRIBUTING.md for the full flow and the required one-time GitHub setup.
+
+Deploy pipelines can run over a private network instead of the public
+internet: `configs-hub` (`configs/config.hub.yaml` + `azure/hub/**`) is a
+dedicated VNet with Private Endpoints into every environment's storage and
+a fleet of ephemeral self-hosted GitHub runners — see
+[Network isolation: the hub](CONTRIBUTING.md#network-isolation-the-hub).
 
 ## Contributing
 
