@@ -97,6 +97,17 @@ For local Terraform modules consumed by those units, copy
 [`modules/README.md`](modules/README.md) for the full steps, including
 registering the module in `multicz.toml`.
 
+Give every unit's `terraform.source` an `enabled` toggle in
+`configs/config.<env>.yaml`, so it can be turned off without deleting the
+unit (terragrunt skips a unit entirely when `source` is `null`) — see
+`azure/hub/*/terragrunt.hcl` for the pattern:
+
+```hcl
+terraform {
+  source = local.config.<env>.<unit>.enabled ? "../../../modules/<name>" : null
+}
+```
+
 ## Formatting
 
 ```bash
