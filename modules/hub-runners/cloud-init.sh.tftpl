@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Chris <goabonga@pm.me>
+
+# Runs once at boot (cloud-init `runcmd`, templated by
+# modules/hub-runners/main.tf). Registers a single-job ephemeral GitHub
+# Actions runner using this VMSS instance's user-assigned managed identity
+# to fetch a short-lived registration token, then shuts the instance down
+# once the job (and the runner's own auto-deregistration) is done - there
+# is no autoscaler yet, an operator manages capacity (see
+# scripts/bootstrap-runner.sh / CONTRIBUTING.md).
+
+set -euo pipefail
+
+apt-get update -y
+apt-get install -y curl jq
+
+# 1. Azure AD token for Key Vault, via IMDS (this instance's managed identity).
+KV_TOKEN=$(curl -sSf -H "Metadata:true" \
+  "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://vault.azure.net" \
+  | jq -r '.access_token')
+
+# 2. GitHub PAT held in Key Vault (pushed there by scripts/bootstrap-runner.sh
+#    - it can't be committed to git-tracked config).
+GITHUB_PAT=$(curl -sSf -H "Authorization: Bearer $${KV_TOKEN}" \
+  "https://${key_vault_name}.vault.azure.net/secrets/${pat_secret_name}?api-version=7.4" \
+  | jq -r '.value')
+
+# 3. Exchange the PAT for a short-lived (1h) runner registration token.
+REG_TOKEN=$(curl -sSf -X POST \
+  -H "Authorization: token $${GITHUB_PAT}" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/${github_repo}/actions/runners/registration-token" \
+  | jq -r '.token')
+
+# 4. Install, configure (ephemeral - deregisters itself after one job) and run.
+useradd -m runner || true
+mkdir -p /home/runner
+cd /home/runner
+curl -sSfL -o actions-runner.tar.gz \
+  "https://github.com/actions/runner/releases/download/v${runner_version}/actions-runner-linux-x64-${runner_version}.tar.gz"
+tar xzf actions-runner.tar.gz
+chown -R runner:runner /home/runner
+
+sudo -u runner ./config.sh \
+  --url "https://github.com/${github_repo}" \
+  --token "$${REG_TOKEN}" \
+  --labels "${runner_labels}" \
+  --ephemeral --unattended --replace
+
+sudo -u runner ./run.sh || true
+
+# The ephemeral runner deregistered itself after exactly one job - stop
+# billing for this instance rather than idle. Capacity/replacement is
+# operator-managed (see variables.tf `instances`) until an event-driven
+# autoscaler exists.
+shutdown -h now
