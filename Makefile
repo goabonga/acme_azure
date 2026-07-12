@@ -1,8 +1,9 @@
-.PHONY: help install docs docs-dev clean
+.PHONY: help install docs docs-dev fmt fmt-check clean
 
-UV       := uv
-VENV     := .venv
-ZENSICAL := $(VENV)/bin/zensical
+UV         := uv
+VENV       := .venv
+ZENSICAL   := $(VENV)/bin/zensical
+TERRAGRUNT := terragrunt --working-dir azure
 
 help:
 	@echo "Targets:"
@@ -10,7 +11,10 @@ help:
 	@echo "Docs:"
 	@echo "  make docs            Build the static site into ./site"
 	@echo "  make docs-dev        Serve docs with live reload (http://127.0.0.1:8800)"
-	@echo "  make clean           Remove caches and ./site"
+	@echo "Terraform / Terragrunt:"
+	@echo "  make fmt             Format modules/ and azure/ in place"
+	@echo "  make fmt-check       Check formatting (same as CI)"
+	@echo "  make clean           Remove caches, ./site and terraform artifacts"
 
 # uv sync installs the doc group (zensical).
 install:
@@ -25,5 +29,18 @@ docs: $(ZENSICAL)
 docs-dev: $(ZENSICAL)
 	$(UV) run zensical serve --dev-addr 127.0.0.1:8800
 
+fmt:
+	terraform fmt -recursive modules
+	$(TERRAGRUNT) hcl format
+
+fmt-check:
+	terraform fmt -check -recursive modules
+	$(TERRAGRUNT) hcl format --check
+
 clean:
 	rm -rf site/ .ruff_cache/
+	find . -type d -name ".terragrunt-cache" \
+		-o -type f -name ".terraform.lock.hcl" \
+		-o -type d -name ".terraform" \
+		-o -type f -name "generated_*.tf" | \
+		xargs rm -Rf
