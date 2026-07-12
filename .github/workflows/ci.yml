@@ -138,6 +138,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write # to dispatch terragrunt-plan.yml, see the step below
     outputs:
       no_bumps: ${{ steps.bump.outputs.no_bumps }}
     steps:
@@ -233,6 +234,17 @@ jobs:
           else
             echo "no_bumps=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Trigger terragrunt-plan
+        # The release commit above was pushed with the default GITHUB_TOKEN,
+        # which (anti-recursion) never fires other workflows' `push`
+        # triggers - terragrunt-plan.yml would otherwise never see that this
+        # commit touched azure/**/modules/**. workflow_dispatch via the API
+        # is a deliberate, one-off call rather than a cascading event, so it
+        # isn't subject to that restriction.
+        if: steps.bump.outputs.no_bumps == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run terragrunt-plan.yml --ref main
 
   docs:
     name: docs
