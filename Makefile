@@ -1,4 +1,4 @@
-.PHONY: help install docs docs-dev fmt fmt-check clean
+.PHONY: help install docs docs-dev fmt fmt-check test clean
 
 UV         := uv
 VENV       := .venv
@@ -14,6 +14,7 @@ help:
 	@echo "Terraform / Terragrunt:"
 	@echo "  make fmt             Format modules/ and azure/ in place"
 	@echo "  make fmt-check       Check formatting (same as CI)"
+	@echo "  make test            Run terraform test for every module with a tests/ dir"
 	@echo "  make clean           Remove caches, ./site and terraform artifacts"
 
 # uv sync installs the doc group (zensical).
@@ -36,6 +37,16 @@ fmt:
 fmt-check:
 	terraform fmt -check -recursive modules
 	$(TERRAGRUNT) hcl format --check
+
+# mock_provider (used by tests/*.tftest.hcl) needs no real Azure
+# credentials or network access - see CONTRIBUTING.md#running-terraform-tests.
+test:
+	@for dir in modules/*/; do \
+		if [ -d "$${dir}tests" ]; then \
+			echo "=== terraform test $${dir} ==="; \
+			(cd "$$dir" && terraform init -backend=false -input=false && terraform test) || exit 1; \
+		fi; \
+	done
 
 clean:
 	rm -rf site/ .ruff_cache/

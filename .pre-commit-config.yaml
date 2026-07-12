@@ -27,7 +27,7 @@ repos:
         entry: terraform fmt -check -recursive modules
         language: system
         pass_filenames: false
-        files: ^modules/.*\.tf$
+        files: ^modules/.*\.(tf|tftest\.hcl)$
       - id: terragrunt-hclfmt
         name: terragrunt hcl format (azure/)
         entry: terragrunt --working-dir azure hcl format --check
@@ -45,10 +45,10 @@ repos:
         files: ^azure/.*\.hcl$
       - id: spdx-headers-modules
         name: SPDX headers (modules/)
-        entry: python scripts/add_license_header.py --path modules --types tf,hcl --check
+        entry: python scripts/add_license_header.py --path modules --types tf,tftpl,hcl --check
         language: system
         pass_filenames: false
-        files: ^modules/.*\.(tf|hcl)$
+        files: ^modules/.*\.(tf|tftpl|hcl)$
       - id: spdx-headers-configs
         name: SPDX headers (configs/)
         entry: python scripts/add_license_header.py --path configs --types yaml --check

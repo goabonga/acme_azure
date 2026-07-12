@@ -48,11 +48,33 @@ jobs:
       - name: Check SPDX headers
         run: |
           python3 scripts/add_license_header.py --path azure --types hcl --check
-          python3 scripts/add_license_header.py --path modules --types tf,hcl --check
+          python3 scripts/add_license_header.py --path modules --types tf,tftpl,hcl --check
           python3 scripts/add_license_header.py --path configs --types yaml --check
           python3 scripts/add_license_header.py --path .github --types yml --check
           python3 scripts/add_license_header.py --path scripts --types py,sh --check
           python3 scripts/add_license_header.py --path . --types toml --check
+
+  terraform-test:
+    name: terraform-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+      # mock_provider (Terraform >= 1.7) intercepts every call - no real
+      # Azure credentials or network access needed, see
+      # CONTRIBUTING.md#running-terraform-tests.
+      - name: Run terraform test for every module with a tests/ directory
+        run: |
+          set -euo pipefail
+          for dir in modules/*/; do
+            if [ -d "${dir}tests" ]; then
+              echo "::group::terraform test ${dir}"
+              (cd "$dir" && terraform init -backend=false -input=false && terraform test)
+              echo "::endgroup::"
+            fi
+          done
 
   docs-build:
     name: docs-build
@@ -105,7 +127,7 @@ jobs:
 
   release:
     name: release
-    needs: [terraform-fmt, terragrunt-hclfmt, license-headers, docs-build, pip-audit, checkov, trivy]
+    needs: [terraform-fmt, terragrunt-hclfmt, license-headers, terraform-test, docs-build, pip-audit, checkov, trivy]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
