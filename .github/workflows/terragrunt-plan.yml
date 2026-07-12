@@ -116,8 +116,16 @@ jobs:
             echo "exit_code=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # -lock=false: acquiring the state lock is a write (blob lease) on
+          # the state container, which the <env>-plan identity intentionally
+          # does not have (Storage Blob Data Reader only, see
+          # CONTRIBUTING.md#one-time-setup...) - granting it would defeat
+          # the point of a genuinely read-only plan identity. Reading state
+          # without a lock is the accepted trade-off for a plan-only
+          # identity; a real concurrent apply is prevented by the plan ->
+          # PR -> apply gate anyway, not by this lock.
           terragrunt --non-interactive --working-dir "azure/${ENV}" \
-            run --all -- plan -detailed-exitcode -no-color -input=false \
+            run --all -- plan -detailed-exitcode -no-color -input=false -lock=false \
             > "plan-${ENV}.txt" 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
       - name: Show plan summary
