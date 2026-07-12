@@ -66,10 +66,13 @@ jobs:
     # since GitHub-hosted runners still work (public network access) until
     # then.
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
-    # Read-only Azure credentials, scoped per environment. Separate from the
-    # `${{ matrix.env }}` environment used by terragrunt-apply.yml so
-    # protecting the apply environment with required reviewers does not
-    # block this automatic plan step.
+    # A genuinely separate, read-only Azure identity from the one used by
+    # terragrunt-apply.yml's `${{ matrix.env }}` environment - its own app
+    # registration, Reader/Storage Blob Data Reader only, not just a
+    # differently-named GitHub Environment sharing the same credentials.
+    # See CONTRIBUTING.md#one-time-setup-per-environment-once-the-repo-has-a-github-remote.
+    # This also means protecting the apply environment with required
+    # reviewers does not block this automatic plan step.
     environment: ${{ matrix.env }}-plan
     permissions:
       contents: read
