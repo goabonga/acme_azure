@@ -128,6 +128,30 @@ needs to do this once per environment, after filling in
   secret needed) — see
   [Azure's GitHub Actions OIDC guide](https://learn.microsoft.com/azure/developer/github/connect-from-azure).
 
+### How the pipelines authenticate to "private" storage
+
+Both storage accounts have `--allow-blob-public-access false` (no
+anonymous access) and `--allow-shared-key-access false` (no account-key
+auth at all - `bootstrap-storage.sh` disables it, and
+`azure/terragrunt.hcl` sets `use_azuread_auth = true` so the state backend
+never needs a key either). "Private" here means **identity-gated**, not
+network-blocked: the storage accounts accept connections from any network
+(GitHub-hosted runners don't have static IPs to allowlist), but every
+request must carry a valid Azure AD token.
+
+`azure/login@v3` (OIDC, no stored secret - GitHub mints a short-lived
+token, Azure AD exchanges it for one scoped to the `AZURE_CLIENT_ID` app
+registration's federated credential) authenticates the `az` CLI session
+that both `az storage blob upload/download --auth-mode login` and the
+terragrunt/terraform run use. Access is authorized purely by the RBAC role
+assignments above - revoke the role and the pipeline loses access
+immediately, no key to rotate.
+
+If you need network-level isolation too (not just identity-based), that
+requires a self-hosted runner inside the Azure VNet with a Private
+Endpoint on the storage account - GitHub-hosted runners can't be
+IP-allowlisted reliably.
+
 ## Reporting bugs and asking for features
 
 Please open a GitHub issue. For security-sensitive reports, follow
