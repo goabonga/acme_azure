@@ -6,12 +6,13 @@ include "root" {
   expose = true
 }
 
-terraform {
-  source = "../../../modules/hub-network"
-}
-
 locals {
   config = include.root.locals.config
+}
+
+terraform {
+  # null when disabled - terragrunt skips this unit entirely (no plan/apply).
+  source = local.config.hub.network.enabled ? "../../../modules/hub-network" : null
 }
 
 inputs = {

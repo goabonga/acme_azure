@@ -23,6 +23,11 @@ hub:
   # location - Azure region. See docs/index.md (EU residency).
   location: francecentral
   network:
+    # enabled - when false, azure/hub/network's `terraform.source` becomes
+    # null and terragrunt skips the unit entirely (no plan/apply). Other
+    # hub units depend on this one, so disabling it effectively disables
+    # the whole hub.
+    enabled: true
     address_space:
       - 10.0.0.0/16
     runner_subnet_prefixes:
@@ -30,6 +35,10 @@ hub:
     private_endpoint_subnet_prefixes:
       - 10.0.2.0/24
   runners:
+    # enabled - same pattern as network.enabled, for azure/hub/runners.
+    # Turn off to tear down the VMSS/Key Vault while keeping the network
+    # and storage endpoints (e.g. cost-saving pause).
+    enabled: true
     # github_repo - "<owner>/<repo>" the runners register against.
     github_repo: goabonga/acme_azure
     # runner_labels - comma-separated, no spaces. All environments whose
@@ -47,13 +56,16 @@ hub:
     admin_username: runneradmin
     # admin_ssh_public_key - matching SSH public key (no password auth).
     admin_ssh_public_key:
-  # storage_endpoints - one entry per environment storage account to reach
-  # privately from the hub VNet. `key` must be unique. Add one pair (state
-  # + plans) per environment registered in configs/config.<env>.yaml.
   storage_endpoints:
-    - key: dev-state
-      resource_group_name:
-      storage_account_name:
-    - key: dev-plans
-      resource_group_name:
-      storage_account_name:
+    # enabled - same pattern, for azure/hub/storage-endpoints.
+    enabled: true
+    # entries - one per environment storage account to reach privately
+    # from the hub VNet. `key` must be unique. Add one pair (state +
+    # plans) per environment registered in configs/config.<env>.yaml.
+    entries:
+      - key: dev-state
+        resource_group_name:
+        storage_account_name:
+      - key: dev-plans
+        resource_group_name:
+        storage_account_name:

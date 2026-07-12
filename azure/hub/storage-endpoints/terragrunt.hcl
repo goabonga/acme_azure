@@ -6,12 +6,13 @@ include "root" {
   expose = true
 }
 
-terraform {
-  source = "../../../modules/hub-storage-endpoints"
-}
-
 locals {
   config = include.root.locals.config
+}
+
+terraform {
+  # null when disabled - terragrunt skips this unit entirely (no plan/apply).
+  source = local.config.hub.storage_endpoints.enabled ? "../../../modules/hub-storage-endpoints" : null
 }
 
 dependency "network" {
@@ -29,6 +30,6 @@ inputs = {
   location                   = local.config.hub.location
   private_endpoint_subnet_id = dependency.network.outputs.private_endpoint_subnet_id
   blob_private_dns_zone_id   = dependency.network.outputs.blob_private_dns_zone_id
-  storage_endpoints          = local.config.hub.storage_endpoints
+  storage_endpoints          = local.config.hub.storage_endpoints.entries
   tags                       = { environment = "hub" }
 }
