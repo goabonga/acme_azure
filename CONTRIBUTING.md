@@ -251,25 +251,45 @@ yet to run the pipeline that creates it.
    `hub`/`hub-plan` GitHub Environments' `RUNNER_LABEL` variable **unset**
    for now - the first apply runs on `ubuntu-latest`, same as any other
    environment before this section existed.
-4. Let `terragrunt-plan.yml` → PR → `terragrunt-apply.yml` run once for
+4. Grant the `hub-plan`/`hub-apply` identities `Reader` on every
+   environment's state + plans storage accounts listed in
+   `hub.storage_endpoints.entries` - `hub-storage-endpoints` looks each one
+   up as a data source (to build a Private Endpoint into it) before it can
+   create anything, so the very first `terragrunt plan` for `hub` 403s
+   without this (the per-environment RBAC table above only covers each
+   identity's *own* environment, not the ones `hub` reaches into):
+
+   ```bash
+   for OID in <hub-plan-object-id> <hub-apply-object-id>; do
+     for ACCOUNT in <env>state <env>plans; do
+       az role assignment create --assignee-object-id "$OID" \
+         --assignee-principal-type ServicePrincipal --role Reader \
+         --scope "$(az storage account show --name "$ACCOUNT" \
+           --resource-group rg-acme-azure-<env> --query id -o tsv)"
+     done
+   done
+   ```
+
+   Repeat per environment registered in `hub.storage_endpoints.entries`.
+5. Let `terragrunt-plan.yml` → PR → `terragrunt-apply.yml` run once for
    `hub`, same as any other environment (see the numbered flow above).
    This creates the VNet, Private Endpoints, VMSS (0 instances), Key Vault
    and runner managed identity - all still driven by a GitHub-hosted
    runner over the public (identity-gated) storage endpoint.
-5. Grant the runner identity RBAC: `Storage Blob Data Contributor` on
+6. Grant the runner identity RBAC: `Storage Blob Data Contributor` on
    every environment's state + plans containers (`terraform output
    runner_identity_principal_id` from `azure/hub/runners`), and `Key Vault
    Secrets User` is already wired by Terraform.
-6. `./scripts/bootstrap-runner.sh` - pushes a GitHub fine-grained PAT
+7. `./scripts/bootstrap-runner.sh` - pushes a GitHub fine-grained PAT
    (`Administration: write` on this repo, needed to mint runner
    registration tokens - see the script's header) into the hub Key Vault,
    and scales the VMSS to 1. Confirm a runner shows up "Idle" at
    `github.com/<repo>/settings/actions/runners`.
-7. Set the `hub` and `hub-plan` GitHub Environments' `RUNNER_LABEL`
+8. Set the `hub` and `hub-plan` GitHub Environments' `RUNNER_LABEL`
    variable to match `.hub.runners.runner_labels` in
    `configs/config.hub.yaml` (e.g. `self-hosted`). From the next `hub`
    deploy onward, `hub` deploys itself through its own runner.
-8. Optionally, once confirmed working: flip `RUNNER_LABEL` for other
+9. Optionally, once confirmed working: flip `RUNNER_LABEL` for other
    environments (`dev`, ...) the same way, then disable public network
    access on their storage accounts entirely (`az storage account update
    --name <account> --public-network-access Disabled`) - the hub's
