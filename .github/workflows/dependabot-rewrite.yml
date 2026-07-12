@@ -7,6 +7,12 @@ name: dependabot-rewrite
 # GPG_PASSPHRASE (regular `pull_request` runs without secrets on bot events).
 # The workflow body is loaded from `main`, not the PR branch, so no untrusted
 # code runs. The actor gate restricts it to genuine Dependabot PRs.
+#
+# DEPENDABOT_REWRITE_PAT (optional): a fine-grained PAT scoped to this repo,
+# contents:write. Without it, the rewritten commits still get pushed (using
+# the default GITHUB_TOKEN) but ci.yml never re-runs against the new SHA
+# (GITHUB_TOKEN pushes don't trigger other workflows) - fine if branch
+# protection doesn't require status checks, a stuck PR otherwise.
 
 on:
   pull_request_target:
@@ -49,6 +55,16 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           persist-credentials: true
+          # Rewriting amends every commit, so the pushed SHA is new even
+          # though the diff is identical - GitHub ties status checks to a
+          # SHA, and a push authenticated with the default GITHUB_TOKEN
+          # never triggers other workflows (anti-recursion protection), so
+          # ci.yml would never run against it and the PR could get stuck
+          # if branch protection requires checks. DEPENDABOT_REWRITE_PAT
+          # (fine-grained, contents:write on this repo) fixes that; falls
+          # back to the default token (same behavior as before, same
+          # caveat) if the secret isn't configured - see CONTRIBUTING.md.
+          token: ${{ secrets.DEPENDABOT_REWRITE_PAT || github.token }}
 
       - name: Configure GPG and git identity from the imported key
         if: steps.gate.outputs.skip != 'true'
@@ -87,6 +103,7 @@ jobs:
         if: steps.gate.outputs.skip != 'true' && success()
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HAS_PAT: ${{ secrets.DEPENDABOT_REWRITE_PAT != '' }}
         run: |
           {
             echo "## Dependabot rewrite: applied"
@@ -95,4 +112,9 @@ jobs:
             echo ""
             echo "- Conventional-commits scope inferred from changed files / dev-group membership"
             echo "- Authored and GPG-signed as \`$(git config user.name) <$(git config user.email)>\`"
+            if [ "$HAS_PAT" = "true" ]; then
+              echo "- Pushed with DEPENDABOT_REWRITE_PAT - ci.yml re-runs against the new commit"
+            else
+              echo "- Pushed with the default GITHUB_TOKEN - **ci.yml will NOT re-run** on this new commit (set DEPENDABOT_REWRITE_PAT to fix)"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
