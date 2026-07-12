@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Chris <goabonga@pm.me>
+
+# Dependabot v2 configuration.
+
+version: 2
+
+updates:
+  # Python dev/doc tooling via uv (pre-commit, zensical). No runtime
+  # dependencies are declared - every bump here is tooling, hence a single
+  # chore(deps) prefix (see scripts/rewrite-dependabot-commit.sh).
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    ignore:
+      # `hatchling` lives in [build-system].requires; Dependabot's uv
+      # FileUpdater cannot write that table. Bump it by hand.
+      - dependency-name: "hatchling"
+    groups:
+      dev-tools:
+        applies-to: version-updates
+        patterns:
+          - "pre-commit"
+          - "zensical"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "python"
+
+  # Terraform / Terragrunt provider and module version constraints under
+  # modules/ and azure/. No-op until real .tf/.hcl files declare pinned
+  # versions.
+  - package-ecosystem: "terraform"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "fix(deps)"
+    labels:
+      - "dependencies"
+      - "terraform"
+
+  # Pinned versions of GitHub Actions in `.github/workflows/*.yml`.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    groups:
+      ci-actions:
+        applies-to: version-updates
+        patterns:
+          - "actions/*"
+          - "astral-sh/*"
+          - "hashicorp/*"
+          - "gruntwork-io/*"
+          - "google/*"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "github-actions"
