@@ -1,0 +1,10 @@
+subscription:
+  # id - Azure subscription id activated by `switch_env dev`.
+  id:
+remote_state:
+  # resource_group_name - Resource group holding the state storage account.
+  resource_group_name:
+  # storage_account_name - Storage account used as the azurerm remote state backend.
+  storage_account_name:
+  # container_name - Blob container inside the storage account.
+  container_name:
