@@ -105,7 +105,18 @@ jobs:
           ENV: ${{ matrix.env }}
         run: |
           set +e
-          terragrunt --non-interactive --working-dir azure \
+          # Each environment only owns azure/<env>/** (see multicz.toml's
+          # "environment-specific terragrunt units" note) - `--working-dir
+          # azure` directly would make every environment's plan also try
+          # (and fail) to evaluate every OTHER environment's units, since
+          # their `local.config.<env>.*` references don't exist under this
+          # ENV's configs/config.<env>.yaml.
+          if [ ! -d "azure/${ENV}" ]; then
+            echo "no azure/${ENV} directory yet - nothing to plan for this environment"
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          terragrunt --non-interactive --working-dir "azure/${ENV}" \
             run --all -- plan -detailed-exitcode -no-color -input=false \
             > "plan-${ENV}.txt" 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
@@ -113,7 +124,19 @@ jobs:
         # Only the "Plan: N to add, M to change, ..." line(s), never full
         # resource-level detail, since job logs are public on a public repo.
         run: |
-          grep -E '^Plan: ' "plan-${{ matrix.env }}.txt" || echo "(no summary line - see exit code / job status)"
+          if [ ! -f "plan-${{ matrix.env }}.txt" ]; then
+            echo "(nothing to plan for this environment yet)"
+          else
+            grep -E '^Plan: ' "plan-${{ matrix.env }}.txt" || echo "(no summary line - see exit code / job status)"
+          fi
+      - name: Show plan error
+        # The full output on a real error (not a successful plan diff) is
+        # just Terraform/HCL error messages, no resource-level detail - see
+        # https://github.com/goabonga/acme_azure/actions/runs/29198456286
+        # for why this step exists: without it, a real error is completely
+        # invisible (redirected to a file, never surfaced anywhere).
+        if: steps.tg.outputs.exit_code == '1'
+        run: cat "plan-${{ matrix.env }}.txt"
       - name: Fail on plan error
         if: steps.tg.outputs.exit_code == '1'
         run: exit 1

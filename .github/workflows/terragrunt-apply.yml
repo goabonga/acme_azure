@@ -74,7 +74,13 @@ jobs:
           ENV: ${{ needs.resolve-env.outputs.env }}
         run: |
           set -euo pipefail
-          terragrunt --non-interactive --working-dir azure \
+          # Scope to this environment's own units only - see the matching
+          # comment in terragrunt-plan.yml's "Terragrunt plan" step.
+          if [ ! -d "azure/${ENV}" ]; then
+            echo "no azure/${ENV} directory yet - nothing to apply for this environment"
+            exit 0
+          fi
+          terragrunt --non-interactive --working-dir "azure/${ENV}" \
             run --all -- apply -auto-approve -input=false
 
       # NOTE: no python-version pin here - multicz needs Python >=3.12 and
