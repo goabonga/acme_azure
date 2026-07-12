@@ -49,22 +49,11 @@ remote_state {
   }
 }
 
-# Generates Terraform version configurations.
-generate "versions" {
-  path      = "generated_versions.tf" # Specifies the file path for generated version configurations.
-  if_exists = "overwrite_terragrunt"  # Defines the behavior if the file already exists.
-
-  # Contents of the generated version configurations.
-  contents = <<EOF
-terraform {
-  required_version = ">= 1.4.6"   # Sets the minimum required Terraform version.
-
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 4.0"
-    }
-  }
-}
-EOF
-}
+# NOTE: deliberately no `generate "versions"` block here. Every real module
+# under modules/ already declares its own `terraform { required_version /
+# required_providers }` in versions.tf (needed standalone anyway, for
+# `terraform test`/`terraform validate` - see CONTRIBUTING.md). A root-
+# generated versions file would duplicate that block in the same working
+# directory, which Terraform rejects ("Duplicate required providers
+# configuration") - see
+# https://github.com/goabonga/acme_azure/actions/runs/29198456286.
