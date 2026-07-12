@@ -117,6 +117,29 @@ bump_files = [
 changelog = "configs/dev.CHANGELOG.md"
 depends_on = ["azure"]
 
+# --- modules-hub-*: the hub's own Terraform modules - libraries, like any
+# other modules/<name> (see modules/README.md), released immediately.
+[components.modules-hub-network]
+paths = ["modules/hub-network/**"]
+bump_files = [
+    { file = "modules/hub-network/VERSION" },
+]
+changelog = "modules/hub-network/CHANGELOG.md"
+
+[components.modules-hub-storage-endpoints]
+paths = ["modules/hub-storage-endpoints/**"]
+bump_files = [
+    { file = "modules/hub-storage-endpoints/VERSION" },
+]
+changelog = "modules/hub-storage-endpoints/CHANGELOG.md"
+
+[components.modules-hub-runners]
+paths = ["modules/hub-runners/**"]
+bump_files = [
+    { file = "modules/hub-runners/VERSION" },
+]
+changelog = "modules/hub-runners/CHANGELOG.md"
+
 # --- configs-hub: the hub network + self-hosted runners - deployed state -
 # azure/hub/** (its own terragrunt units, not shared with other
 # environments) counts toward ITS bump, unlike azure/<env>/** for other
@@ -127,4 +150,4 @@ bump_files = [
     { file = "configs/hub.VERSION" },
 ]
 changelog = "configs/hub.CHANGELOG.md"
-depends_on = ["azure"]
+depends_on = ["azure", "modules-hub-network", "modules-hub-storage-endpoints", "modules-hub-runners"]
