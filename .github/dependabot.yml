@@ -33,11 +33,15 @@ updates:
       - "dependencies"
       - "python"
 
-  # Terraform / Terragrunt provider and module version constraints under
-  # modules/ and azure/. No-op until real .tf/.hcl files declare pinned
-  # versions.
+  # Terraform provider version constraints - each module has its own
+  # versions.tf, and `directory: "/"` errors ("No files found in /") since
+  # there's no .tf directly at repo root - see
+  # https://github.com/goabonga/acme_azure/actions/runs/29198457678.
+  # `directories` (plural) is glob-aware: new modules under modules/ are
+  # picked up automatically, no edit needed here.
   - package-ecosystem: "terraform"
-    directory: "/"
+    directories:
+      - "/modules/*"
     schedule:
       interval: "weekly"
       day: "monday"
