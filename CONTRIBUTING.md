@@ -58,7 +58,9 @@ per-component version bump and CHANGELOG computed by
 | `feat!` / `BREAKING CHANGE:` | major | incompatible change |
 
 The repository has **multiple independently versioned components** (see
-[`multicz.toml`](multicz.toml)): `docs`, `azure`, `configs-dev`, and any
+[`multicz.toml`](multicz.toml)): `docs`, `azure`, `configs-dev`, `configs-hub`
+(the shared network + self-hosted runners, see
+[Network isolation: the hub](#network-isolation-the-hub) below), and any
 Terraform module registered under `modules/` (see
 [`modules/README.md`](modules/README.md)). Only commits that touch a
 component's tracked `paths` trigger that component's release — e.g. a change
@@ -147,10 +149,76 @@ terragrunt/terraform run use. Access is authorized purely by the RBAC role
 assignments above - revoke the role and the pipeline loses access
 immediately, no key to rotate.
 
-If you need network-level isolation too (not just identity-based), that
-requires a self-hosted runner inside the Azure VNet with a Private
-Endpoint on the storage account - GitHub-hosted runners can't be
-IP-allowlisted reliably.
+Network-level isolation (not just identity-based) is exactly what the hub
+below provides.
+
+## Network isolation: the hub
+
+`configs/config.hub.yaml` + `azure/hub/**` define a dedicated hub VNet
+(`modules/hub-network`), Private Endpoints into every environment's state
+and plans storage (`modules/hub-storage-endpoints`), and a fleet of
+ephemeral self-hosted runners on a VM Scale Set
+(`modules/hub-runners`) that can reach them privately. It's treated as its
+own environment (`configs-hub`), going through the exact same plan → PR →
+apply flow as `dev`/`staging`/`prod` above - **except its first apply**,
+which has a chicken-and-egg problem: the self-hosted runner doesn't exist
+yet to run the pipeline that creates it.
+
+### Bootstrap sequence (once, per hub)
+
+1. Fill in `configs/config.hub.yaml` (resource group, address space,
+   `admin_ssh_public_key`, the `storage_endpoints` list - one `state` +
+   `plans` pair per environment already registered).
+2. `./scripts/bootstrap-storage.sh hub` - state storage for the hub's own
+   Terraform state (same chicken-and-egg as any other environment).
+3. Push `main` and `deploy/hub` (created locally from `main`). Leave the
+   `hub`/`hub-plan` GitHub Environments' `RUNNER_LABEL` variable **unset**
+   for now - the first apply runs on `ubuntu-latest`, same as any other
+   environment before this section existed.
+4. Let `terragrunt-plan.yml` → PR → `terragrunt-apply.yml` run once for
+   `hub`, same as any other environment (see the numbered flow above).
+   This creates the VNet, Private Endpoints, VMSS (0 instances), Key Vault
+   and runner managed identity - all still driven by a GitHub-hosted
+   runner over the public (identity-gated) storage endpoint.
+5. Grant the runner identity RBAC: `Storage Blob Data Contributor` on
+   every environment's state + plans containers (`terraform output
+   runner_identity_principal_id` from `azure/hub/runners`), and `Key Vault
+   Secrets User` is already wired by Terraform.
+6. `./scripts/bootstrap-runner.sh` - pushes a GitHub fine-grained PAT
+   (`Administration: write` on this repo, needed to mint runner
+   registration tokens - see the script's header) into the hub Key Vault,
+   and scales the VMSS to 1. Confirm a runner shows up "Idle" at
+   `github.com/<repo>/settings/actions/runners`.
+7. Set the `hub` and `hub-plan` GitHub Environments' `RUNNER_LABEL`
+   variable to match `.hub.runners.runner_labels` in
+   `configs/config.hub.yaml` (e.g. `self-hosted`). From the next `hub`
+   deploy onward, `hub` deploys itself through its own runner.
+8. Optionally, once confirmed working: flip `RUNNER_LABEL` for other
+   environments (`dev`, ...) the same way, then disable public network
+   access on their storage accounts entirely (`az storage account update
+   --name <account> --public-network-access Disabled`) - the hub's
+   Private Endpoint is now the only path in. Do this **after** the
+   switch-over, not before, or the GitHub-hosted fallback (still used by
+   `terragrunt-plan.yml` until you flip the label) locks itself out.
+
+### Known gaps, deliberately deferred
+
+- **No event-driven autoscaler.** Capacity is fixed/operator-managed
+  (`az vmss scale`, or `.hub.runners.instances` in
+  `configs/config.hub.yaml`). A webhook-triggered autoscaler (GitHub
+  `workflow_job` event → Azure Function → `az vmss scale`) is a natural
+  follow-up once usage justifies it.
+- **PAT, not a GitHub App.** A fine-grained PAT is the simplest option for
+  a personal-account repo (Actions Runner Controller / org-level runner
+  fleets assume an organization). It's stored only in Key Vault, never in
+  git, and instances fetch it via managed identity at boot - but it's a
+  long-lived credential you must remember to rotate
+  (`./scripts/bootstrap-runner.sh` again with a fresh PAT).
+- **VNet peering to environment networks** isn't wired yet - `dev`/
+  `staging`/`prod` don't have their own Terraform-managed VNets to peer to
+  yet (only their state/plans storage exists). Add peering (or Private
+  Endpoints, same pattern as `hub-storage-endpoints`) once those networks
+  exist.
 
 ## Reporting bugs and asking for features
 
